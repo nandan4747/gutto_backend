@@ -2,8 +2,6 @@ import { User } from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { FriendRequest } from "../models/FriendRequest.js";
-import { Request } from "express";
-import { send } from "node:process";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_gutto";
 
@@ -30,10 +28,12 @@ export const registerUser = async (userData: any) => {
   });
 
   return {
-    _id: newUser._id,
-    username: newUser.username,
+    user: {
+      _id: newUser._id,
+      username: newUser.username,
+      fullname: newUser.fullname,
+    },
     token: generateToken(newUser._id.toString()),
-    fullname: newUser.fullname,
   };
 };
 
@@ -48,10 +48,8 @@ export const loginUser = async (credentials: any) => {
   if (!isMatch) throw new Error("Invalid credentials!");
 
   return {
-    _id: user._id,
-    username: user.username,
+    user: { _id: user._id, username: user.username, fullname: user.fullname },
     token: generateToken(user._id.toString()),
-    fullname: user.fullname,
   };
 };
 
@@ -78,7 +76,6 @@ export const sendFriendRequest = async (req: any) => {
     }
 
     if (destinationUser.accountType === "private") {
-    
       const existingRequest = await FriendRequest.findOne({
         senderId,
         receiverId,
@@ -98,8 +95,6 @@ export const sendFriendRequest = async (req: any) => {
       };
     }
 
-    // 4. Handle Public Accounts (Auto-Connect)
-    // We use Promise.all to update BOTH users simultaneously
     await Promise.all([
       User.updateOne(
         { _id: receiverId },
