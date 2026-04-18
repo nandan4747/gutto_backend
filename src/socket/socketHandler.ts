@@ -31,6 +31,7 @@ export const messageHandler = (io: any, socket: any) => {
   socket.on("message", async (incomingData: IIncomingMessage) => {
     const data = Array.isArray(incomingData) ? incomingData[0] : incomingData;
     const { receiverId, text, isGroup, type, url } = data;
+    console.log(`message : ${text}`);
     try {
       // checking if user blocked
       const canProceed = await canUsersCommunicate(
@@ -41,24 +42,24 @@ export const messageHandler = (io: any, socket: any) => {
         socket.emit("alerts", "Message not sent");
         return;
       }
-      const savedMessage = await Message.create({
-        senderUserId: authenticatedUserId,
-        reciverUserId: receiverId,
-        text,
-        type: type || "text",
-        url: url || "",
-        isReaded: false,
-      });
-      const messagePayload = {
-        _id: savedMessage._id,
-        text: savedMessage.text,
-        from: authenticatedUserId,
-        type: savedMessage.type,
-        url: savedMessage.url,
-        createdAt: savedMessage.createdAt,
-      };
-
+      let savedMessage: any;
       if (isGroup) {
+        const savedMessage = await saveMessageToDB(
+          authenticatedUserId,
+          receiverId,
+          text,
+          type,
+          url,
+        );
+
+        const messagePayload = {
+          _id: savedMessage._id,
+          text: savedMessage.text,
+          from: authenticatedUserId,
+          type: savedMessage.type,
+          url: savedMessage.url,
+          createdAt: savedMessage.createdAt,
+        };
         io.to(receiverId).emit("newGroupMessage", {
           ...messagePayload,
           groupId: receiverId,
@@ -69,14 +70,36 @@ export const messageHandler = (io: any, socket: any) => {
           receiverId,
         );
         if (!canSend) {
+          console.log("not a freind");
           return socket.emit("alerts", "account is private");
         }
+        savedMessage = await saveMessageToDB(
+          authenticatedUserId,
+          receiverId,
+          text,
+          type,
+          url,
+        );
+
+        const messagePayload = {
+          _id: savedMessage._id,
+          text: savedMessage.text,
+          from: authenticatedUserId,
+          type: savedMessage.type,
+          url: savedMessage.url,
+          createdAt: savedMessage.createdAt,
+        };
         io.to(receiverId).emit("newMessage", messagePayload);
       }
 
+      // In messageHandler, after saving:
       socket.emit("messageSent", {
-        tempId: (data as any).tempId,
-        status: "saved",
+        _id: savedMessage._id,
+        tempId: data.tempId, 
+        receiverId,
+        text: savedMessage.text,
+        type: savedMessage.type,
+        createdAt: savedMessage.createdAt,
       });
     } catch (error) {
       console.error("DB Error:", error);
@@ -91,4 +114,22 @@ export const messageHandler = (io: any, socket: any) => {
   socket.on("disconnect", () => {
     console.log("User disconnected");
   });
+};
+
+const saveMessageToDB = async (
+  authenticatedUserId: string,
+  receiverId: string,
+  text: string,
+  type: string,
+  url: string,
+) => {
+  const savedMessage = await Message.create({
+    senderUserId: authenticatedUserId,
+    reciverUserId: receiverId,
+    text,
+    type: type || "text",
+    url: url || "",
+    isReaded: false,
+  });
+  return savedMessage;
 };

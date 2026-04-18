@@ -6,6 +6,7 @@ import {
   getPendingRequests,
   blockUser,
   unblockUser,
+  forceReset,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
@@ -42,6 +43,25 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post("/temp/reset/force", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // Validate that we actually got data
+    if (!username || !password) {
+      return res.status(400).send({ error: "Missing username or password" });
+    }
+
+    await forceReset({ username, password });
+    
+    res.send({ message: "Password updated successfully. Try not to lose it this time." });
+  } catch (error: any) {
+    console.error("Reset Error:", error.message); // Log the actual error for debugging
+    res.status(500).send({
+      error: error.message || "Couldn't reset",
+    });
+  }
+});
 router.post("/send/freindrequest", protect, async (req, res) => {
   try {
     const response = await sendFriendRequest(req);

@@ -95,3 +95,79 @@ export const getChatHistory = async (userId: string, otherUserId: string, limit 
     throw new Error("Failed to fetch the tea. Check your connection.");
   }
 };
+
+export const getConversationList = async (userId: string) => {
+  const currentUserId = new mongoose.Types.ObjectId(userId);
+
+  const conversations = await Message.aggregate([
+    // 1. Find all messages involving the current user
+    {
+      $match: {
+        $or: [
+          { senderUserId: currentUserId },
+          { reciverUserId: currentUserId }
+        ]
+      }
+    },
+    // 2. Sort by latest first so the $group grab the newest message
+    { $sort: { createdAt: -1 } },
+    // 3. Group by the "Other Person"
+    {
+      $group: {
+        _id: {
+          $cond: [
+            { $eq: ["$senderUserId", currentUserId] },
+            "$reciverUserId",
+            "$senderUserId"
+          ]
+        },
+        latestMessage: { $first: "$$ROOT" },
+        unreadCount: {
+          $sum: {
+            $cond: [
+              { 
+                $and: [
+                  { $eq: ["$reciverUserId", currentUserId] },
+                  { $eq: ["$isReaded", false] }
+                ]
+              },
+              1, 0
+            ]
+          }
+        }
+      }
+    },
+    // 4. Join with User collection to get their name/username
+    {
+      $lookup: {
+        from: "users", // must match your mongo collection name
+        localField: "_id",
+        foreignField: "_id",
+        as: "userDetails"
+      }
+    },
+    // 5. Clean up the output
+    { $unwind: "$userDetails" },
+    {
+      $project: {
+        _id: 0,
+        partner: {
+          _id: "$userDetails._id",
+          username: "$userDetails.username",
+          fullname: "$userDetails.fullname",
+        },
+        latestMessage: {
+          text: "$latestMessage.text",
+          type: "$latestMessage.type",
+          createdAt: "$latestMessage.createdAt",
+          senderId: "$latestMessage.senderUserId"
+        },
+        unreadCount: 1
+      }
+    },
+    // 6. Final sort to ensure the person with the newest chat is at the top
+    { $sort: { "latestMessage.createdAt": -1 } }
+  ]);
+
+  return conversations;
+};

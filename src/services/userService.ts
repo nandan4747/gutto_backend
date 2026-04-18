@@ -43,6 +43,7 @@ export const loginUser = async (credentials: any) => {
 
   const user = await User.findOne({ username });
   if (!user) throw new Error("User not found!");
+  console.log(user.password);
 
   const isMatch = await bcrypt.compare(password, user.password as string);
   if (!isMatch) throw new Error("Invalid credentials!");
@@ -53,6 +54,24 @@ export const loginUser = async (credentials: any) => {
   };
 };
 
+export const forceReset = async (credentials: any) => {
+  const { username, password } = credentials;
+
+  // 1. Await the hash FIRST
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // 2. Use $set because password is a String, not an Array
+  const result = await User.updateOne(
+    { username },
+    { $set: { password: hashedPassword } }
+  );
+
+  if (result.matchedCount === 0) {
+    throw new Error("User not found");
+  }
+
+  return result;
+};
 export const sendFriendRequest = async (req: any) => {
   const senderId = req.user.id;
   const { receiverId } = req.body;

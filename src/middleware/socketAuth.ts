@@ -1,25 +1,34 @@
 import jwt from "jsonwebtoken";
 import { Socket } from "socket.io";
+import cookie from "cookie";
 
 export const socketProtect = (socket: Socket, next: (err?: Error) => void) => {
-  // 1. Get token from the 'auth' object (sent from frontend)
-  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  // 1. Read raw cookie header from the handshake
+  const rawCookies = socket.handshake.headers.cookie;
+
+
+  if (!rawCookies) {
+    return next(new Error("Authentication error: No cookies found"));
+    
+  }
+
+  // 2. Parse cookies and extract your token
+  const cookies = cookie.parse(rawCookies);
+  const token = cookies["token"]; // 👈 match the name you used when setting the cookie
 
   if (!token) {
-    return next(new Error("Authentication error: No token provided"));
+    return next(new Error("Authentication error: No token in cookies"));
   }
 
   try {
-    // 2. Verify the token
+    // 3. Verify the token
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || "super_secret_gutto",
     ) as { id: string };
 
-    // 3. Attach the ID to the socket so all handlers can see it
     socket.data.userId = decoded.id;
-
-    next(); // All good, proceed to connection
+    next();
   } catch (err) {
     next(new Error("Authentication error: Invalid token"));
   }
