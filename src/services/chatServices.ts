@@ -79,19 +79,24 @@ export const getUnreadSummary = async (userId: string) => {
     throw new Error(`Aggregation failed: ${error.message}`);
   }
 };
-export const getChatHistory = async (userId: string, otherUserId: string, limit = 50) => {
+export const getChatHistory = async (
+  userId: string,
+  otherUserId: string,
+  limit = 50,
+) => {
   try {
     const messages = await Message.find({
       $or: [
         { senderUserId: userId, reciverUserId: otherUserId },
-        { senderUserId: otherUserId, reciverUserId: userId }
-      ]
+        { senderUserId: otherUserId, reciverUserId: userId },
+      ],
     })
-    .sort({ createdAt: 1 }) // Order by time so the chat flows correctly
-    .limit(limit);
+      .sort({ createdAt: 1 }) // Order by time so the chat flows correctly
+      .limit(limit);
 
     return messages;
   } catch (error: any) {
+    console.log(error);
     throw new Error("Failed to fetch the tea. Check your connection.");
   }
 };
@@ -105,9 +110,9 @@ export const getConversationList = async (userId: string) => {
       $match: {
         $or: [
           { senderUserId: currentUserId },
-          { reciverUserId: currentUserId }
-        ]
-      }
+          { reciverUserId: currentUserId },
+        ],
+      },
     },
     // 2. Sort by latest first so the $group grab the newest message
     { $sort: { createdAt: -1 } },
@@ -118,24 +123,25 @@ export const getConversationList = async (userId: string) => {
           $cond: [
             { $eq: ["$senderUserId", currentUserId] },
             "$reciverUserId",
-            "$senderUserId"
-          ]
+            "$senderUserId",
+          ],
         },
         latestMessage: { $first: "$$ROOT" },
         unreadCount: {
           $sum: {
             $cond: [
-              { 
+              {
                 $and: [
                   { $eq: ["$reciverUserId", currentUserId] },
-                  { $eq: ["$isReaded", false] }
-                ]
+                  { $eq: ["$isReaded", false] },
+                ],
               },
-              1, 0
-            ]
-          }
-        }
-      }
+              1,
+              0,
+            ],
+          },
+        },
+      },
     },
     // 4. Join with User collection to get their name/username
     {
@@ -143,8 +149,8 @@ export const getConversationList = async (userId: string) => {
         from: "users", // must match your mongo collection name
         localField: "_id",
         foreignField: "_id",
-        as: "userDetails"
-      }
+        as: "userDetails",
+      },
     },
     // 5. Clean up the output
     { $unwind: "$userDetails" },
@@ -160,14 +166,40 @@ export const getConversationList = async (userId: string) => {
           text: "$latestMessage.text",
           type: "$latestMessage.type",
           createdAt: "$latestMessage.createdAt",
-          senderId: "$latestMessage.senderUserId"
+          senderId: "$latestMessage.senderUserId",
         },
-        unreadCount: 1
-      }
+        unreadCount: 1,
+      },
     },
     // 6. Final sort to ensure the person with the newest chat is at the top
-    { $sort: { "latestMessage.createdAt": -1 } }
+    { $sort: { "latestMessage.createdAt": -1 } },
   ]);
 
   return conversations;
+};
+
+export const markConversationAsRead = async (
+  readerId: string,
+  senderId: string,
+) => {
+  try {
+    const result = await Message.updateMany(
+      {
+        senderUserId: senderId, // The person who sent the messages
+        reciverUserId: readerId, // The person (You) reading them (holding onto the typo for dear life)
+        isReaded: false, // No point in reading what's already been read
+      },
+      {
+        $set: { isReaded: true },
+      },
+    );
+
+    console.log(
+      `✅ ${result.modifiedCount} messages now have the "I'm not ghosting you" status.`,
+    );
+    return result;
+  } catch (error) {
+    console.error("Failed to mark messages as read:", error);
+    throw error;
+  }
 };

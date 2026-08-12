@@ -24,7 +24,7 @@ const joinUserGroups = async (socket: Socket, userId: string) => {
   }
 };
 
-export const messageHandler = (io: any, socket: any) => {
+export const messageHandler = (io: any, socket: Socket) => {
   const authenticatedUserId = socket.data.userId;
   if (!authenticatedUserId) return;
 
@@ -95,7 +95,7 @@ export const messageHandler = (io: any, socket: any) => {
       // In messageHandler, after saving:
       socket.emit("messageSent", {
         _id: savedMessage._id,
-        tempId: data.tempId, 
+        tempId: data.tempId,
         receiverId,
         text: savedMessage.text,
         type: savedMessage.type,

@@ -7,6 +7,7 @@ import {
   blockUser,
   unblockUser,
   forceReset,
+  getUserById,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
@@ -21,6 +22,27 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
 };
 
+router.get("/me", protect, async (req: any, res) => {
+  console.log("Fetching user info for user ID:", req.user.id);
+  try {
+    await getUserById(
+      req.user.id,
+      (user) => {
+        res.status(200).send({
+          userId: user._id,
+          username: user.username,
+          fullname: user.fullname,
+          accountType: user.accountType,
+        });
+      },
+      () => {
+        res.status(404).send();
+      },
+    );
+  } catch (err: any) {
+    res.status(404).json({ error: "User not found" });
+  }
+});
 // Register Endpoint
 router.post("/register", async (req, res) => {
   try {
@@ -46,15 +68,17 @@ router.post("/login", async (req, res) => {
 router.post("/temp/reset/force", async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     // Validate that we actually got data
     if (!username || !password) {
       return res.status(400).send({ error: "Missing username or password" });
     }
 
     await forceReset({ username, password });
-    
-    res.send({ message: "Password updated successfully. Try not to lose it this time." });
+
+    res.send({
+      message: "Password updated successfully. Try not to lose it this time.",
+    });
   } catch (error: any) {
     console.error("Reset Error:", error.message); // Log the actual error for debugging
     res.status(500).send({

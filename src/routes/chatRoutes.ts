@@ -4,6 +4,7 @@ import {
   getUnreadSummary,
   getChatHistory,
   getConversationList,
+  markConversationAsRead,
 } from "../services/chatServices.js";
 
 const router = express.Router();
@@ -29,6 +30,20 @@ router.get("/conversations", protect, async (req: any, res) => {
   } catch (error) {
     console.log("error : enable to fetch user converstaion list  : ", error);
     res.status(401).send({ error: "unable to get converstaion list" });
+  }
+});
+
+router.get("/markasread", protect, async (req: any, res: any) => {
+  const reciverId = req.user.id;
+  const senderId = req.query.senderId;
+
+  // We await this because we want to be sure it worked before saying "Done!"
+  try {
+    await markConversationAsRead(reciverId, senderId);
+    res.sendStatus(201);
+  } catch (error: any) {
+    console.log("Error while marking as read:", error.message);
+    res.status(500).json({ message: "Failed to update read status" });
   }
 });
 

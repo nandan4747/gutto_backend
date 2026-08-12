@@ -10,6 +10,23 @@ export const generateToken = (mongoId: string) => {
   return jwt.sign({ id: mongoId }, JWT_SECRET, { expiresIn: "7d" });
 };
 
+export const getUserById = async (
+  userId: string,
+  userFound: (user: any) => void,
+  userNotFound: () => void,
+) => {
+  try {
+    const user = await User.findById(userId);
+    if (user) {
+      userFound(user);
+    } else {
+      userNotFound();
+    }
+  } catch (error: any) {
+    throw new Error(`Failed to fetch user: ${error.message}`);
+  }
+};
+
 // 2. Register Logic
 export const registerUser = async (userData: any) => {
   const { username, fullname, password, accountType } = userData;
@@ -63,7 +80,7 @@ export const forceReset = async (credentials: any) => {
   // 2. Use $set because password is a String, not an Array
   const result = await User.updateOne(
     { username },
-    { $set: { password: hashedPassword } }
+    { $set: { password: hashedPassword } },
   );
 
   if (result.matchedCount === 0) {

@@ -24,8 +24,8 @@ const io = new Server(server, {
 });
 app.use(
   cors({
-    origin: "http://localhost:5173", 
-    credentials: true, 
+    origin: "http://localhost:5173",
+    credentials: true,
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
   }),
 );
@@ -44,9 +44,9 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/user", userRouter);
-app.use("/chat", chatRouter);
-app.use("/groupchat", groupChatRouter);
+app.use("/api/user", userRouter);
+app.use("/api/chat", chatRouter);
+app.use("/api/groupchat", groupChatRouter);
 
 const port = process.env.PORT || 10000;
 const domain = process.env.DOMAIN || "localhost";

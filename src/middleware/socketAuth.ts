@@ -6,15 +6,13 @@ export const socketProtect = (socket: Socket, next: (err?: Error) => void) => {
   // 1. Read raw cookie header from the handshake
   const rawCookies = socket.handshake.headers.cookie;
 
-
   if (!rawCookies) {
     return next(new Error("Authentication error: No cookies found"));
-    
   }
 
   // 2. Parse cookies and extract your token
   const cookies = cookie.parse(rawCookies);
-  const token = cookies["token"]; // 👈 match the name you used when setting the cookie
+  const token = cookies["token"];
 
   if (!token) {
     return next(new Error("Authentication error: No token in cookies"));
