@@ -29,7 +29,7 @@ router.get("/me", protect, async (req: any, res) => {
       req.user.id,
       (user) => {
         res.status(200).send({
-          userId: user._id,
+          _id: user._id,
           username: user.username,
           fullname: user.fullname,
           accountType: user.accountType,

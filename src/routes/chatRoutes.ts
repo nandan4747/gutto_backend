@@ -55,6 +55,7 @@ router.get("/:senderId", protect, async (req: any, res) => {
     res.send(messages);
   } catch (error: any) {
     console.log("error whil fetching user messages : ", error.message);
+    res.status(500).send({ error: "unable to fetch chat history" }); // ← add this
   }
 });
 
