@@ -51,11 +51,19 @@ router.get("/:senderId", protect, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { senderId } = req.params;
-    const messages = await getChatHistory(userId, senderId);
-    res.send(messages);
+    const { cursor, limit } = req.query;
+
+    const result = await getChatHistory(
+      userId,
+      senderId,
+      limit ? parseInt(limit as string, 10) : 50,
+      typeof cursor === "string" ? cursor : undefined,
+    );
+
+    res.status(200).send(result); // { messages, nextCursor }
   } catch (error: any) {
     console.log("error whil fetching user messages : ", error.message);
-    res.status(500).send({ error: "unable to fetch chat history" }); // ← add this
+    res.status(500).send({ error: "unable to fetch chat history" });
   }
 });
 

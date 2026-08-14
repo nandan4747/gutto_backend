@@ -79,22 +79,44 @@ export const getUnreadSummary = async (userId: string) => {
     throw new Error(`Aggregation failed: ${error.message}`);
   }
 };
+interface ChatHistoryResult {
+  messages: any[]; // oldest -> newest, ready to render as-is
+  nextCursor: string | null; // pass this back as `cursor` to fetch older messages
+}
+
 export const getChatHistory = async (
   userId: string,
   otherUserId: string,
   limit = 50,
-) => {
+  cursor?: string,
+): Promise<ChatHistoryResult> => {
   try {
-    const messages = await Message.find({
+    const query: any = {
       $or: [
         { senderUserId: userId, reciverUserId: otherUserId },
         { senderUserId: otherUserId, reciverUserId: userId },
       ],
-    })
-      .sort({ createdAt: 1 }) // Order by time so the chat flows correctly
-      .limit(limit);
+    };
 
-    return messages;
+    if (cursor) {
+      if (!mongoose.Types.ObjectId.isValid(cursor)) {
+        throw new Error("Invalid cursor");
+      }
+      query._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+    }
+
+    const rows = await Message.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1);
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    const nextCursor = hasMore ? page[page.length - 1]._id.toString() : null;
+
+    const messages = [...page].reverse();
+
+    return { messages, nextCursor };
   } catch (error: any) {
     console.log(error);
     throw new Error("Failed to fetch the tea. Check your connection.");
