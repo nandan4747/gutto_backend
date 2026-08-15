@@ -314,3 +314,37 @@ export const validateMessagePermission = async (
     return { allowed: false, reason: "Internal error" };
   }
 };
+
+// Add these two functions to src/services/userService.ts
+
+export const getUserConnections = async (userId: string) => {
+  try {
+    const user = await User.findById(userId).populate(
+      "connections",
+      "username fullname accountType",
+    );
+    if (!user) throw new Error("User not found");
+    return user.connections;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch connections: ${error.message}`);
+  }
+};
+
+export const searchUsers = async (query: string, excludeUserId: string) => {
+  try {
+    const term = query.trim();
+    if (!term) return [];
+
+    const regex = new RegExp(term, "i");
+    const users = await User.find({
+      _id: { $ne: excludeUserId },
+      $or: [{ username: regex }, { fullname: regex }],
+    })
+      .select("username fullname accountType")
+      .limit(20);
+
+    return users;
+  } catch (error: any) {
+    throw new Error(`Search failed: ${error.message}`);
+  }
+};

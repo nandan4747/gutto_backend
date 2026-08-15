@@ -8,6 +8,8 @@ import {
   unblockUser,
   forceReset,
   getUserById,
+  searchUsers,
+  getUserConnections,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
@@ -84,6 +86,29 @@ router.post("/temp/reset/force", async (req, res) => {
     res.status(500).send({
       error: error.message || "Couldn't reset",
     });
+  }
+});
+
+router.get("/connections", protect, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const connections = await getUserConnections(userId);
+    res.status(200).json(connections);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Query param is `q` to avoid colliding with anything else, e.g.
+// GET /api/user/search?q=nandu
+router.get("/search", protect, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const query = (req.query.q as string) || "";
+    const results = await searchUsers(query, userId);
+    res.status(200).json(results);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 });
 router.post("/send/freindrequest", protect, async (req, res) => {

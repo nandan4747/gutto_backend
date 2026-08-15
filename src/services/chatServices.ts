@@ -112,7 +112,11 @@ export const getChatHistory = async (
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
 
-    const nextCursor = hasMore ? page[page.length - 1]._id.toString() : null;
+    const lastMessage = page[page.length - 1];
+    const nextCursor =
+      hasMore && lastMessage ? lastMessage._id.toString() : null;
+
+    //const nextCursor = hasMore ? page[page.length - 1]._id.toString() : null;
 
     const messages = [...page].reverse();
 
