@@ -228,19 +228,12 @@ export const blockUser = async (userId: string, targetId: string) => {
   }
 
   try {
-    await Promise.all([
-      User.updateOne(
-        { _id: userId },
-        {
-          $addToSet: { blockedUsers: targetId },
-          $pull: { connections: targetId },
-        },
-      ),
+    await User.updateOne(
+      { _id: userId },
+      { $addToSet: { blockedUsers: targetId } },
+    );
 
-      User.updateOne({ _id: targetId }, { $pull: { connections: userId } }),
-    ]);
-
-    return { message: "User blocked and connection terminated." };
+    return { message: "User blocked successfully." };
   } catch (error: any) {
     throw new Error(`Blocking failed: ${error.message}`);
   }
@@ -346,5 +339,35 @@ export const searchUsers = async (query: string, excludeUserId: string) => {
     return users;
   } catch (error: any) {
     throw new Error(`Search failed: ${error.message}`);
+  }
+};
+
+export const getBlockedUsers = async (userId: string) => {
+  try {
+    const user = await User.findById(userId).populate(
+      "blockedUsers",
+      "username fullname accountType"
+    );
+    if (!user) throw new Error("User not found");
+    return user.blockedUsers;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch blocked users: ${error.message}`);
+  }
+};
+
+export const unfriendUser = async (userId: string, targetId: string) => {
+  if (userId === targetId) {
+    throw new Error("You can't unfriend yourself.");
+  }
+
+  try {
+    await Promise.all([
+      User.updateOne({ _id: userId }, { $pull: { connections: targetId } }),
+      User.updateOne({ _id: targetId }, { $pull: { connections: userId } }),
+    ]);
+
+    return { message: "User unfriended and removed from connections." };
+  } catch (error: any) {
+    throw new Error(`Unfriending failed: ${error.message}`);
   }
 };

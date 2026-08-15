@@ -10,6 +10,8 @@ import {
   getUserById,
   searchUsers,
   getUserConnections,
+  unfriendUser,
+  getBlockedUsers,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
@@ -94,6 +96,16 @@ router.get("/connections", protect, async (req: any, res) => {
     const userId = req.user.id;
     const connections = await getUserConnections(userId);
     res.status(200).json(connections);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get("/blocked", protect, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const blockedUsers = await getBlockedUsers(userId);
+    res.status(200).json(blockedUsers);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -188,4 +200,21 @@ router.post("/unblock", protect, async (req: Request, res: Response) => {
     console.log(error.message);
   }
 });
+
+router.post("/unfriend", protect, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { targetId } = (req as any).query;
+
+    if (!targetId) {
+      throw new Error("Target ID is required to unfriend.");
+    }
+
+    const result = await unfriendUser(userId, targetId);
+    res.status(200).send(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 export default router;
