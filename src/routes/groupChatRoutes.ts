@@ -14,6 +14,7 @@ const router = express.Router();
 
 router.get("/", protect, async (req: any, res) => {
   try {
+    //console.log("inside details route ----------------------------------------------------------");
     const userId = req.user.id;
     const groupChatdetails = await getUserGroups(userId);
     res.send(groupChatdetails);
@@ -25,18 +26,24 @@ router.get("/", protect, async (req: any, res) => {
 });
 
 router.get(
-  "/:groupId/messages",
+  "/messages/:groupId",
   protect,
   async (req: Request, res: Response) => {
     try {
-      const groupId = req.params.groupId as string;
+      //console.log("in message route----------------------------------------------------------");
+      const { groupId } = req.params as { groupId: string };
+      //console.log(`group id : ${groupId} from params `)
       const userId = (req as any).user.id;
 
-      // We pass a limit from the query string if it exists, otherwise default to 50
       const limit = parseInt(req.query.limit as string) || 50;
 
-      const messages = await getGroupMessages(groupId, userId, limit);
-      res.status(200).json(messages);
+      // Extract the cursor from the query string
+      const cursor = req.query.cursor as string | undefined;
+
+      // Now this returns an object containing { messages, nextCursor }
+      const result = await getGroupMessages(groupId, userId, limit, cursor);
+
+      res.status(200).json(result);
     } catch (err: any) {
       res.status(403).json({ error: err.message });
     }
@@ -47,13 +54,13 @@ router.post("/", protect, async (req: any, res) => {
   try {
     const adminId = req.user.id;
     const { newMembers, groupChatName } = req.body;
-    console.log("executing request");
-    console.log(
-      `admin id : ${adminId} newMember : ${!newMembers ? [] : newMembers} chat name : ${groupChatName}`,
-    );
+    //console.log("executing request");
+    //console.log(
+    //  `admin id : ${adminId} newMember : ${!newMembers ? [] : newMembers} chat name : ${groupChatName}`,
+    //);
 
     if (!adminId || !newMembers) {
-      console.log("creating group ");
+      //console.log("creating group ");
       const newgroup = await createGroup(
         groupChatName,
         adminId,

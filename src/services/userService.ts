@@ -2,6 +2,7 @@ import { User } from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { FriendRequest } from "../models/FriendRequest.js";
+import { Group } from "../models/Group.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_gutto";
 
@@ -60,7 +61,7 @@ export const loginUser = async (credentials: any) => {
 
   const user = await User.findOne({ username });
   if (!user) throw new Error("User not found!");
-  console.log(user.password);
+  //console.log(user.password);
 
   const isMatch = await bcrypt.compare(password, user.password as string);
   if (!isMatch) throw new Error("Invalid credentials!");
@@ -259,8 +260,16 @@ export const unblockUser = async (userId: string, targetId: string) => {
 export const canUsersCommunicate = async (
   senderId: string,
   receiverId: string,
+  isGroup: boolean
 ) => {
   try {
+
+    if (isGroup) {
+      const group = await Group.findById(receiverId).select("members");
+      if (!group) return false;
+      const isMember = group.members.some((id) => id.equals(senderId));
+      return isMember;
+    }
     // We check both users at once for efficiency
     const users = await User.find({
       _id: { $in: [senderId, receiverId] },

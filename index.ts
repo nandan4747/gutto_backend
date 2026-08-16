@@ -34,7 +34,7 @@ app.use(cookieParser());
 io.use(socketProtect);
 
 io.on("connection", (socket) => {
-  console.log(`User connected: ${socket.data.userId}`);
+  // console.log(`User connected: ${socket.data.userId}`);
   messageHandler(io, socket);
 });
 
@@ -52,7 +52,7 @@ const port = process.env.PORT || 10000;
 const domain = process.env.DOMAIN || "localhost";
 
 server.listen(port, () => {
-  console.log(`server is online http://${domain}:${port}/`);
+  //console.log(`server is online http://${domain}:${port}/`);
 });
 
 try {

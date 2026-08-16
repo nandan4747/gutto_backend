@@ -24,7 +24,7 @@ export const deleteGroup = async (groupId: string, userId: string) => {
     const group = await Group.findById(groupId);
 
     if (!group) throw new Error("Group not found.");
-    
+
     // Check if the person trying to delete is actually the boss
     if (!group.admin.equals(userId)) {
       throw new Error("Only the admin can dismantle this empire.");
@@ -76,7 +76,7 @@ export const removeUserFromGroup = async (groupId: string, requesterId: string, 
 
     // Don't let the admin leave if they are the only ones left (or handle admin transfer)
     if (group.admin.equals(targetUserId) && isSelfLeaving && group.members.length > 1) {
-       throw new Error("You are the admin. You can't just abandon your post without promoted someone else first!");
+      throw new Error("You are the admin. You can't just abandon your post without promoted someone else first!");
     }
 
     const updatedGroup = await Group.findByIdAndUpdate(
@@ -96,9 +96,9 @@ export const getUserGroups = async (userId: string) => {
     const groups = await Group.find({
       members: userId // MongoDB automatically checks if the ID exists in the array
     })
-    .populate("admin", "username fullname") // See who the "Great Leader" is
-    .populate("members", "username fullname") // See the rest of the squad
-    .sort({ updatedAt: -1 }); 
+      .populate("admin", "username fullname") // See who the "Great Leader" is
+      .populate("members", "username fullname") // See the rest of the squad
+      .sort({ updatedAt: -1 });
 
     return {
       count: groups.length,
@@ -110,25 +110,48 @@ export const getUserGroups = async (userId: string) => {
   }
 };
 
-export const getGroupMessages = async (groupId: string, userId: string, limit = 50) => {
+export const getGroupMessages = async (groupId: string, userId: string, limit = 50, cursor?: string) => {
   try {
+    // console.log("getting messages ---------------------------------------------------");
     // 1. Security Check: Is the user actually IN this group?
+    // Good job checking this, we don't want randos reading the group chat.
     const group = await Group.findOne({ _id: groupId, members: userId });
-    
+
     if (!group) {
       throw new Error("You are not a member of this group or the group doesn't exist.");
     }
 
-    // 2. Fetch messages where reciverUserId is the groupId
-    const messages = await Message.find({
-      reciverUserId: groupId // In your handler, this is where the Group ID is stored
-    })
-    .populate("senderUserId", "username fullname") // So you know who said what
-    .sort({ createdAt: -1 }) // Get newest first for performance
-    .limit(limit);
+    // 2. Build the query object
+    const query: any = { reciverUserId: groupId };
 
-    // 3. Return them in chronological order (oldest to newest) for the UI
-    return messages.reverse();
+    // If a cursor is provided, we want messages OLDER than the cursor
+    if (cursor) {
+      query._id = { $lt: cursor };
+    }
+
+    // 3. Fetch messages
+    const messages = await Message.find(query)
+      .populate("senderUserId", "username fullname")
+      .sort({ _id: -1 }) // Sort by _id (newest first). Safer than createdAt for cursors.
+      .limit(limit);
+
+    if (messages.length === 0) {
+      return {
+        messages: [],
+        nextCursor: null
+      }
+    }
+    // 4. Calculate the next cursor
+    // The last item in our descending array is the oldest message of this batch.
+    // If we fetched 'limit' amount of messages, there might be more history to load.
+    const nextCursor = messages.length === limit ? messages[messages.length - 1]._id : null;
+
+    // 5. Return them in chronological order (oldest to newest) for the UI
+    // Because reading conversation backward is only fun if you're Christopher Nolan.
+    return {
+      messages: messages.reverse(),
+      nextCursor
+    };
   } catch (error: any) {
     console.error(`Error fetching group chat: ${error.message}`);
     throw new Error(error.message || "Failed to load group history.");

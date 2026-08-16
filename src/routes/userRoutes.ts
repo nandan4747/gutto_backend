@@ -27,7 +27,7 @@ const cookieOptions = {
 };
 
 router.get("/me", protect, async (req: any, res) => {
-  console.log("Fetching user info for user ID:", req.user.id);
+  //console.log("Fetching user info for user ID:", req.user.id);
   try {
     await getUserById(
       req.user.id,

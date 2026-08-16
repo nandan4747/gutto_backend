@@ -220,9 +220,9 @@ export const markConversationAsRead = async (
       },
     );
 
-    console.log(
-      `✅ ${result.modifiedCount} messages now have the "I'm not ghosting you" status.`,
-    );
+    /* console.log(
+    `✅ ${result.modifiedCount} messages now have the "I'm not ghosting you" status.`,
+    );*/
     return result;
   } catch (error) {
     console.error("Failed to mark messages as read:", error);
