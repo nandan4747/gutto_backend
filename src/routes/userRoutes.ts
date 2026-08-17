@@ -12,6 +12,7 @@ import {
   getUserConnections,
   unfriendUser,
   getBlockedUsers,
+  searchUserConnections,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
@@ -69,6 +70,27 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.get("/profile/:userId", protect, async (req: any, res) => {
+  try {
+    await getUserById(
+      req.params.userId,
+      (user) => {
+        res.status(200).send({
+          _id: user._id,
+          username: user.username,
+          fullname: user.fullname,
+          accountType: user.accountType,
+        });
+      },
+      () => {
+        res.status(404).send({ error: "User not found" });
+      },
+    );
+  } catch (err: any) {
+    res.status(404).json({ error: "User not found" });
+  }
+});
+
 router.post("/temp/reset/force", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -94,8 +116,33 @@ router.post("/temp/reset/force", async (req, res) => {
 router.get("/connections", protect, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const connections = await getUserConnections(userId);
-    res.status(200).json(connections);
+
+    // Extract query params (defaulting limit to 10 if some clown forgets to pass it)
+    const cursor = req.query.cursor as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const result = await getUserConnections(userId, cursor, limit);
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// routes (add next to the existing /connections route)
+router.get("/connections/search", protect, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const username = (req.query.username as string)?.trim();
+
+    if (!username) {
+      return res
+        .status(400)
+        .json({ error: "username query param is required" });
+    }
+
+    const results = await searchUserConnections(userId, username);
+    res.status(200).json({ data: results });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

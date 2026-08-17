@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { FriendRequest } from "../models/FriendRequest.js";
 import { Group } from "../models/Group.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_gutto";
 
@@ -260,10 +261,9 @@ export const unblockUser = async (userId: string, targetId: string) => {
 export const canUsersCommunicate = async (
   senderId: string,
   receiverId: string,
-  isGroup: boolean
+  isGroup: boolean,
 ) => {
   try {
-
     if (isGroup) {
       const group = await Group.findById(receiverId).select("members");
       if (!group) return false;
@@ -319,14 +319,45 @@ export const validateMessagePermission = async (
 
 // Add these two functions to src/services/userService.ts
 
-export const getUserConnections = async (userId: string) => {
+export const getUserConnections = async (
+  userId: string,
+  cursor?: string,
+  limit: number = 10,
+) => {
   try {
-    const user = await User.findById(userId).populate(
-      "connections",
-      "username fullname accountType",
-    );
+    // If we have a cursor, fetch connections older (less than) the cursor's _id
+    const matchQuery = cursor ? { _id: { $lt: cursor } } : {};
+
+    const user = await User.findById(userId).populate({
+      path: "connections",
+      match: matchQuery,
+      select: "username fullname accountType",
+      options: {
+        sort: { _id: -1 }, // Sort descending (newest first)
+        limit: limit + 1, // Fetch one extra to see if there's more data
+      },
+    });
+
     if (!user) throw new Error("User not found");
-    return user.connections;
+
+    // Mongoose types can be annoying with populated arrays, hence the cast
+    const connections = user.connections as any[];
+
+    // Did we get more than our limit? That means there's a next page.
+    const hasNextPage = connections.length > limit;
+    if (hasNextPage) {
+      connections.pop(); // Remove the sacrificial extra item we fetched
+    }
+
+    // Grab the _id of the last item to act as the cursor for the next request
+    const nextCursor = hasNextPage
+      ? connections[connections.length - 1]._id
+      : null;
+
+    return {
+      data: connections,
+      nextCursor,
+    };
   } catch (error: any) {
     throw new Error(`Failed to fetch connections: ${error.message}`);
   }
@@ -342,7 +373,7 @@ export const searchUsers = async (query: string, excludeUserId: string) => {
       _id: { $ne: excludeUserId },
       $or: [{ username: regex }, { fullname: regex }],
     })
-      .select("username fullname accountType")
+      .select("_id username fullname accountType")
       .limit(20);
 
     return users;
@@ -355,7 +386,7 @@ export const getBlockedUsers = async (userId: string) => {
   try {
     const user = await User.findById(userId).populate(
       "blockedUsers",
-      "username fullname accountType"
+      "username fullname accountType",
     );
     if (!user) throw new Error("User not found");
     return user.blockedUsers;
@@ -378,5 +409,27 @@ export const unfriendUser = async (userId: string, targetId: string) => {
     return { message: "User unfriended and removed from connections." };
   } catch (error: any) {
     throw new Error(`Unfriending failed: ${error.message}`);
+  }
+};
+
+export const searchUserConnections = async (
+  userId: string,
+  username: string,
+) => {
+  try {
+    const safeUsername = escapeRegex(username.trim());
+
+    const user = await User.findById(userId).populate({
+      path: "connections",
+      match: { username: { $regex: safeUsername, $options: "i" } },
+      select: "username fullname accountType",
+      options: { limit: 10 }, // don't let one search dump the whole friend list
+    });
+
+    if (!user) throw new Error("User not found");
+
+    return user.connections as any[];
+  } catch (error: any) {
+    throw new Error(`Failed to search connections: ${error.message}`);
   }
 };
