@@ -5,6 +5,7 @@ import {
   getChatHistory,
   getConversationList,
   markConversationAsRead,
+  deleteMessage,
 } from "../services/chatServices.js";
 
 const router = express.Router();
@@ -64,6 +65,40 @@ router.get("/:senderId", protect, async (req: any, res) => {
   } catch (error: any) {
     console.log("error whil fetching user messages : ", error.message);
     res.status(500).send({ error: "unable to fetch chat history" });
+  }
+});
+
+router.delete("/:messageId", protect, async (req: any, res: any) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.id;
+
+    const deletedMessage = await deleteMessage(messageId, userId);
+
+    const io = req.app.get("io");
+    const { senderUserId, reciverUserId, text } = deletedMessage;
+
+    // Broadcast to recipient
+    io.to(reciverUserId).emit("message_deleted", {
+      messageId: deletedMessage.messageId,
+      conversationId: senderUserId,
+      text,
+    });
+
+    // Broadcast to sender's other devices/tabs
+    io.to(senderUserId).emit("message_deleted", {
+      messageId: deletedMessage.messageId,
+      conversationId: reciverUserId,
+      text,
+    });
+
+    return res.status(200).json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting message:", error.message);
+    const status = error.statusCode || 500;
+    return res
+      .status(status)
+      .json({ error: error.message || "Failed to delete message" });
   }
 });
 

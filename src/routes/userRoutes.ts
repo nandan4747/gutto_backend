@@ -13,6 +13,9 @@ import {
   unfriendUser,
   getBlockedUsers,
   searchUserConnections,
+  resetPassword,
+  resetFullName,
+  toggleAccountType,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
@@ -21,10 +24,10 @@ import { protect } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 const cookieOptions = {
-  httpOnly: true, // Prevents JS access! No 'document.cookie' for hackers.
-  secure: process.env.NODE_ENV === "production", // Only sends over HTTPS in production
-  sameSite: "strict" as const, // Prevents CSRF attacks
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 router.get("/me", protect, async (req: any, res) => {
@@ -88,6 +91,68 @@ router.get("/profile/:userId", protect, async (req: any, res) => {
     );
   } catch (err: any) {
     res.status(404).json({ error: "User not found" });
+  }
+});
+router.put("/password", protect, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).send({ error: "missing details" });
+    }
+    const result = await resetPassword(userId, oldPassword, newPassword);
+    res.send(result);
+  } catch (error: any) {
+    res.status(500).send({
+      error: error.message || "Couldn't reset",
+    });
+  }
+});
+
+router.put("/fullname", protect, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { fullname } = req.body;
+
+    if (!fullname) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a 'fullname' in the request body.",
+      });
+    }
+
+    const result = await resetFullName(userId, fullname);
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error("Error updating fullname:", error.message);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Something broke while changing your name.",
+    });
+  }
+});
+
+router.put("/account-type/toggle", protect, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Who are you again?",
+      });
+    }
+
+    const result = await toggleAccountType(userId);
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    console.error("Error toggling account type:", error.message);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to flip the switch.",
+    });
   }
 });
 
@@ -262,6 +327,15 @@ router.post("/unfriend", protect, async (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
+});
+router.post("/logout", (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict" as const,
+  });
+
+  res.status(200).json({ message: "Successfully logged out. Goodbye." });
 });
 
 export default router;

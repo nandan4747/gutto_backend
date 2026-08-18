@@ -1,3 +1,4 @@
+import { text } from "stream/consumers";
 import { Message } from "../models/Message.js";
 import mongoose from "mongoose";
 
@@ -228,4 +229,35 @@ export const markConversationAsRead = async (
     console.error("Failed to mark messages as read:", error);
     throw error;
   }
+};
+export const deleteMessage = async (messageId: string, userId: string) => {
+  const message = await Message.findById(messageId);
+
+  if (!message) {
+    const error: any = new Error("Message not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (message.senderUserId.toString() !== userId) {
+    const error: any = new Error("Unauthorized to delete this message");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 1. Snapshot the details needed for Socket events BEFORE deleting
+  const deletedData = {
+    messageId: message._id.toString(),
+    senderUserId: message.senderUserId.toString(),
+    reciverUserId: message.reciverUserId
+      ? message.reciverUserId.toString()
+      : null,
+    text: "<this message is deleted by sender>.",
+  };
+
+  // 2. Permanently erase it from the DB
+  await message.deleteOne(); // Or Message.findByIdAndDelete(messageId);
+
+  // 3. Return the snapshot so your controller/socket can broadcast the removal
+  return deletedData;
 };

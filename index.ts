@@ -29,6 +29,7 @@ app.use(
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
   }),
 );
+app.set("io", io);
 app.use(express.json());
 app.use(cookieParser());
 io.use(socketProtect);

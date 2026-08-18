@@ -73,6 +73,98 @@ export const loginUser = async (credentials: any) => {
   };
 };
 
+export const resetPassword = async (
+  _id: string,
+  oldPassword: string,
+  newPassword: string,
+) => {
+  try {
+    const user = await User.findById(_id);
+    if (!user) throw new Error("User not found.");
+
+    if (!user.password)
+      throw new Error("This user doesn't even have a password.");
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+
+    if (!isMatch) {
+      throw new Error("Old password is incorrect. Nice try, though.");
+    }
+
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // 4. Update and save
+    user.password = hashedNewPassword;
+    await user.save();
+
+    return {
+      success: true,
+      message: "Password successfully updated",
+    };
+  } catch (error: any) {
+    console.error("Failed to reset password:", error.message);
+    throw new Error(error.message || "Something went terribly wrong.");
+  }
+};
+
+export const resetFullName = async (userId: string, newFullName: string) => {
+  try {
+    // Basic validation so people don't name themselves an empty string
+    if (!newFullName || newFullName.trim().length === 0) {
+      throw new Error(
+        "You must have a name. Even 'McLovin' is better than an empty string.",
+      );
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { fullname: newFullName.trim() },
+      {
+        new: true, // Returns the updated document instead of the old one
+        runValidators: true, // Ensures it still respects your Schema rules
+      },
+    );
+
+    if (!updatedUser) {
+      throw new Error("User not found. Hard to rename a ghost.");
+    }
+
+    return {
+      success: true,
+      message: "Name successfully changed.",
+      fullname: updatedUser.fullname,
+    };
+  } catch (error: any) {
+    throw new Error(error.message || "Failed to update full name.");
+  }
+};
+
+export const toggleAccountType = async (userId: string) => {
+  try {
+    // We need to fetch the user first to see what their current state is
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new Error("User not found. Are you sure you even exist?");
+    }
+
+    // The old switcheroo
+    const newType = user.accountType === "private" ? "public" : "private";
+
+    user.accountType = newType;
+    await user.save();
+
+    return {
+      success: true,
+      message: `Congratulations, your account is now ${newType}.`,
+      accountType: newType,
+    };
+  } catch (error: any) {
+    throw new Error(error.message || "Failed to toggle account type.");
+  }
+};
+
 export const forceReset = async (credentials: any) => {
   const { username, password } = credentials;
 
