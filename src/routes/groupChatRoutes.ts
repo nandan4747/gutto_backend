@@ -8,6 +8,7 @@ import {
   removeUserFromGroup,
   getUserGroups,
   getGroupMessages,
+  selfremoveFromGroup,
 } from "../services/groupChatService.js";
 
 const router = express.Router();
@@ -54,20 +55,13 @@ router.post("/", protect, async (req: any, res) => {
   try {
     const adminId = req.user.id;
     const { newMembers, groupChatName } = req.body;
-    //console.log("executing request");
-    //console.log(
-    //  `admin id : ${adminId} newMember : ${!newMembers ? [] : newMembers} chat name : ${groupChatName}`,
-    //);
 
-    if (!adminId || !newMembers) {
-      //console.log("creating group ");
-      const newgroup = await createGroup(
-        groupChatName,
-        adminId,
-        !newMembers ? [] : newMembers,
-      );
-      res.send(newgroup);
-    }
+    const newgroup = await createGroup(
+      groupChatName,
+      adminId,
+      newMembers ?? [],
+    );
+    res.send(newgroup);
   } catch (err: any) {
     console.error("error while creating new Group chat : ", err.message);
     res.status(401).send({
@@ -117,4 +111,20 @@ router.delete("/member", protect, async (req: any, res) => {
     });
   }
 });
+
+router.get("/:groupId/leave", protect, async (req: any, res) => {
+  try {
+    const groupId = req.params.groupId;
+
+    const userId = req.user.id;
+
+    const result = await selfremoveFromGroup(groupId, userId);
+
+    res.status(200).json(result);
+  } catch (error: any) {
+    // Catching the errors we threw in the service (Admin check, not found, etc.)
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 export default router;
