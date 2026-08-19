@@ -9,6 +9,7 @@ export interface IMessage extends Document {
   isReaded: boolean;
   url?: string | undefined;
   storagePath?: string | undefined;
+  fileName?: string | undefined;
   createdAt: Date;
 }
 
@@ -36,6 +37,7 @@ const MessageSchema: Schema = new Schema(
     isReaded: { type: Boolean, default: false },
     url: { type: String },
     storagePath: { type: String },
+    fileName: { type: String },
   },
   { timestamps: true },
 );

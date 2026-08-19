@@ -1,7 +1,18 @@
 import { text } from "stream/consumers";
 import { Message } from "../models/Message.js";
+import { Group } from "../models/Group.js";
 import mongoose from "mongoose";
 import { deleteFileFromSupabase } from "./fileUploadService.js";
+
+// A message's `reciverUserId` is overloaded: for a DM it's the other user,
+// for a group message it's the groupId. Delete broadcasts need to know
+// which one they're dealing with to send the right `conversationId` to
+// each side (see deleteMessage / deleteFileMessage below).
+const isGroupConversation = async (id: string): Promise<boolean> => {
+  if (!mongoose.Types.ObjectId.isValid(id)) return false;
+  const exists = await Group.exists({ _id: id });
+  return Boolean(exists);
+};
 
 // Get the actual message objects
 export const getUnreadMessages = async (userId: string) => {
@@ -246,13 +257,16 @@ export const deleteMessage = async (messageId: string, userId: string) => {
     throw error;
   }
 
+  const reciverUserId = message.reciverUserId
+    ? message.reciverUserId.toString()
+    : null;
+
   // 1. Snapshot the details needed for Socket events BEFORE deleting
   const deletedData = {
     messageId: message._id.toString(),
     senderUserId: message.senderUserId.toString(),
-    reciverUserId: message.reciverUserId
-      ? message.reciverUserId.toString()
-      : null,
+    reciverUserId,
+    isGroup: reciverUserId ? await isGroupConversation(reciverUserId) : false,
     text: "<this message is deleted by sender>.",
   };
 
@@ -286,14 +300,17 @@ export const deleteFileMessage = async (userId: string, messageId: string) => {
     await deleteFileFromSupabase(message.storagePath);
   }
 
+  const reciverUserId = message.reciverUserId
+    ? message.reciverUserId.toString()
+    : null;
+
   // Snapshot what the socket broadcast needs BEFORE the row is gone —
   // same pattern as your text deleteMessage.
   const deletedData = {
     messageId: message._id.toString(),
     senderUserId: message.senderUserId.toString(),
-    reciverUserId: message.reciverUserId
-      ? message.reciverUserId.toString()
-      : null,
+    reciverUserId,
+    isGroup: reciverUserId ? await isGroupConversation(reciverUserId) : false,
   };
 
   await message.deleteOne();

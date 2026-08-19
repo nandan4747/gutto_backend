@@ -89,16 +89,20 @@ router.delete("/:messageId", protect, async (req: any, res: any) => {
     const deletedMessage = await deleteMessage(messageId, userId);
 
     const io = req.app.get("io");
-    const { senderUserId, reciverUserId, text } = deletedMessage;
+    const { senderUserId, reciverUserId, isGroup, text } = deletedMessage;
 
-    // Broadcast to recipient
+    // Recipients key their conversation state by groupId for group chats,
+    // but by the sender's id for DMs — pick whichever matches what the
+    // OTHER side's client actually has stored.
     io.to(reciverUserId).emit("message_deleted", {
       messageId: deletedMessage.messageId,
-      conversationId: senderUserId,
+      conversationId: isGroup ? reciverUserId : senderUserId,
       text,
     });
 
-    // Broadcast to sender's other devices/tabs
+    // Broadcast to sender's other devices/tabs — from the sender's own
+    // point of view the conversation is always keyed by reciverUserId
+    // (the partner id, or the groupId).
     io.to(senderUserId).emit("message_deleted", {
       messageId: deletedMessage.messageId,
       conversationId: reciverUserId,
@@ -175,6 +179,7 @@ router.post(
         type: messageType,
         url,
         storagePath,
+        fileName: file.originalname,
         isReaded: false,
       });
 
@@ -184,6 +189,7 @@ router.post(
         from: senderId,
         type: savedMessage.type,
         url: savedMessage.url,
+        fileName: savedMessage.fileName,
         createdAt: savedMessage.createdAt,
       };
 
@@ -219,13 +225,20 @@ router.delete(
       const { messageId } = req.params;
 
       const deletedMessage = await deleteFileMessage(userId, messageId);
+      const { senderUserId, reciverUserId, isGroup } = deletedMessage;
 
-      if (deletedMessage.reciverUserId) {
+      if (reciverUserId) {
         const io = req.app.get("io");
-        io.to(deletedMessage.reciverUserId).emit("message_deleted", {
+
+        // Same conversationId convention as the text-delete route above.
+        io.to(reciverUserId).emit("message_deleted", {
           messageId: deletedMessage.messageId,
-          senderId: deletedMessage.senderUserId,
-          receiverId: deletedMessage.reciverUserId,
+          conversationId: isGroup ? reciverUserId : senderUserId,
+        });
+
+        io.to(senderUserId).emit("message_deleted", {
+          messageId: deletedMessage.messageId,
+          conversationId: reciverUserId,
         });
       }
 
