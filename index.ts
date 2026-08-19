@@ -15,6 +15,7 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+app.set("trust proxy", 1);
 const io = new Server(server, {
   cors: {
     //origin: "http://localhost:5173",
@@ -31,6 +32,7 @@ app.use(
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
   }),
 );
+
 app.set("io", io);
 app.use(express.json());
 app.use(cookieParser());

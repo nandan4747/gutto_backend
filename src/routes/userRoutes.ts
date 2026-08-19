@@ -22,11 +22,11 @@ import { Request, Response } from "express";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
-
+const isProduction = process.env.NODE_ENV === "production";
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict" as const,
+  secure: isProduction,
+  sameSite: isProduction ? ("none" as const) : ("lax" as const),
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
