@@ -1,6 +1,7 @@
 import { text } from "stream/consumers";
 import { Message } from "../models/Message.js";
 import mongoose from "mongoose";
+import { deleteFileFromSupabase } from "./fileUploadService.js";
 
 // Get the actual message objects
 export const getUnreadMessages = async (userId: string) => {
@@ -259,5 +260,43 @@ export const deleteMessage = async (messageId: string, userId: string) => {
   await message.deleteOne(); // Or Message.findByIdAndDelete(messageId);
 
   // 3. Return the snapshot so your controller/socket can broadcast the removal
+  return deletedData;
+};
+
+// Replace deleteFileMessage in src/services/chatServices.ts
+
+export const deleteFileMessage = async (userId: string, messageId: string) => {
+  const message = await Message.findById(messageId);
+
+  if (!message) {
+    const error: any = new Error("Message not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (message.senderUserId.toString() !== userId) {
+    const error: any = new Error("Unauthorized to delete this message");
+    error.statusCode = 403;
+    throw error;
+  }
+  if (
+    (message.type === "image" || message.type === "file") &&
+    message.storagePath
+  ) {
+    await deleteFileFromSupabase(message.storagePath);
+  }
+
+  // Snapshot what the socket broadcast needs BEFORE the row is gone —
+  // same pattern as your text deleteMessage.
+  const deletedData = {
+    messageId: message._id.toString(),
+    senderUserId: message.senderUserId.toString(),
+    reciverUserId: message.reciverUserId
+      ? message.reciverUserId.toString()
+      : null,
+  };
+
+  await message.deleteOne();
+
   return deletedData;
 };

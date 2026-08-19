@@ -7,7 +7,8 @@ export interface IMessage extends Document {
   text: string;
   type: "text" | "image" | "file";
   isReaded: boolean;
-  url?: string;
+  url?: string | undefined;
+  storagePath?: string | undefined;
   createdAt: Date;
 }
 
@@ -34,6 +35,7 @@ const MessageSchema: Schema = new Schema(
     type: { type: String, enum: ["text", "image", "file"], default: "text" },
     isReaded: { type: Boolean, default: false },
     url: { type: String },
+    storagePath: { type: String },
   },
   { timestamps: true },
 );
