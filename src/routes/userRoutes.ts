@@ -331,8 +331,8 @@ router.post("/unfriend", protect, async (req: Request, res: Response) => {
 router.post("/logout", (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
+    secure: isProduction,
+    sameSite: isProduction ? ("none" as const) : ("lax" as const),
   });
 
   res.status(200).json({ message: "Successfully logged out. Goodbye." });
