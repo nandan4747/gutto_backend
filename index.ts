@@ -17,14 +17,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    //origin: "http://localhost:5173",
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
     credentials: true,
   },
 });
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    //origin: "http://localhost:5173",
     credentials: true,
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
   }),
@@ -53,7 +53,7 @@ const port = process.env.PORT || 10000;
 const domain = process.env.DOMAIN || "localhost";
 
 server.listen(port, () => {
-  //console.log(`server is online http://${domain}:${port}/`);
+  console.log(`server is online http://${domain}:${port}/`);
 });
 
 try {
