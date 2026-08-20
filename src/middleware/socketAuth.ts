@@ -1,33 +1,18 @@
-import jwt from "jsonwebtoken";
 import { Socket } from "socket.io";
-import cookie from "cookie";
+import jwt from "jsonwebtoken";
 
 export const socketProtect = (socket: Socket, next: (err?: Error) => void) => {
-  // 1. Read raw cookie header from the handshake
-  const rawCookies = socket.handshake.headers.cookie;
-
-  if (!rawCookies) {
-    return next(new Error("Authentication error: No cookies found"));
-  }
-
-  // 2. Parse cookies and extract your token
-  const cookies = cookie.parse(rawCookies);
-  const token = cookies["token"];
+  const token = socket.handshake.auth?.token;
 
   if (!token) {
-    return next(new Error("Authentication error: No token in cookies"));
+    return next(new Error("Authentication error: no token provided"));
   }
 
   try {
-    // 3. Verify the token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "super_secret_gutto",
-    ) as { id: string };
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
     socket.data.userId = decoded.id;
     next();
   } catch (err) {
-    next(new Error("Authentication error: Invalid token"));
+    next(new Error("Authentication error: invalid token"));
   }
 };

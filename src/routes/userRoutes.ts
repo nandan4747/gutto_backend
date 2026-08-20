@@ -23,12 +23,6 @@ import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 const isProduction = process.env.NODE_ENV === "production";
-const cookieOptions = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? ("none" as const) : ("lax" as const),
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-};
 
 router.get("/me", protect, async (req: any, res) => {
   //console.log("Fetching user info for user ID:", req.user.id);
@@ -55,19 +49,16 @@ router.get("/me", protect, async (req: any, res) => {
 router.post("/register", async (req, res) => {
   try {
     const { user, token } = await registerUser(req.body);
-    res.cookie("token", token, cookieOptions);
-    res.status(201).json(user);
+    res.status(201).json({ user, token });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Login Endpoint
 router.post("/login", async (req, res) => {
   try {
     const { user, token } = await loginUser(req.body);
-    res.cookie("token", token, cookieOptions);
-    res.status(200).json(user);
+    res.status(200).json({ user, token });
   } catch (err: any) {
     res.status(401).json({ error: err.message });
   }

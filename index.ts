@@ -18,16 +18,14 @@ const server = http.createServer(app);
 app.set("trust proxy", 1);
 const io = new Server(server, {
   cors: {
-    //origin: "http://localhost:5173",
-    origin: "https://en-samachara.vercel.app",
+    origin: ["http://localhost:5173", "https://en-samachara.vercel.app"],
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
     credentials: true,
   },
 });
 app.use(
   cors({
-    //origin: "http://localhost:5173",
-    origin: "https://en-samachara.vercel.app",
+    origin: ["http://localhost:5173", "https://en-samachara.vercel.app"],
     credentials: true,
     methods: ["GET", "POST", "DELETE", "PATCH", "PUT"],
   }),
@@ -54,7 +52,6 @@ app.use("/api/chat", chatRouter);
 app.use("/api/groupchat", groupChatRouter);
 
 const port = process.env.PORT || 10000;
-const domain = process.env.DOMAIN || "localhost";
 
 server.listen(port, () => {
   //console.log(`server is online http://${domain}:${port}/`);

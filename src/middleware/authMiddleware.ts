@@ -1,12 +1,18 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-export const protect = async (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies.token;
+export const protect = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const authHeader = req.headers.authorization;
 
-  if (!token) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Not authorized, no token found." });
   }
+
+  const token = authHeader.slice("Bearer ".length);
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
