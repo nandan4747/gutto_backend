@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { FriendRequest } from "../models/FriendRequest.js";
 import { Group } from "../models/Group.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
+import mongoose from "mongoose";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_gutto";
 
@@ -199,6 +200,7 @@ export const sendFriendRequest = async (req: any) => {
     );
 
     if (!destinationUser) throw new Error("User not found");
+
     const isBlocked = destinationUser.blockedUsers.some((uid) =>
       uid.equals(senderId),
     );
@@ -210,15 +212,63 @@ export const sendFriendRequest = async (req: any) => {
       throw new Error("Unable to send connection request");
     }
 
+    // 2. Check for an existing request between this exact sender/receiver pair
+    // (unique index means we can only ever have ONE doc for this pair, so we
+    // must update it, not create a second one)
+    const existingRequest = await FriendRequest.findOne({
+      senderId,
+      receiverId,
+    });
+
+    if (existingRequest) {
+      if (existingRequest.status === "pending") {
+        throw new Error("Request already pending");
+      }
+
+      if (existingRequest.status === "accepted") {
+        // Shouldn't normally get here since isAlreadyConnected would've caught
+        // it — but guard against stale/inconsistent state just in case.
+        throw new Error("Already a Freind");
+      }
+
+      // status === "rejected" -> allow re-sending by resetting the same doc
+      if (destinationUser.accountType === "private") {
+        await FriendRequest.findByIdAndUpdate(existingRequest._id, {
+          status: "pending",
+        });
+
+        return {
+          message: "Friend request sent",
+          requestStatus: "success",
+          friendRequestStatus: "pending",
+        };
+      }
+
+      // Public account -> auto-accept immediately, no need to leave it pending
+      await Promise.all([
+        FriendRequest.findByIdAndUpdate(existingRequest._id, {
+          status: "accepted",
+        }),
+        User.updateOne(
+          { _id: receiverId },
+          { $addToSet: { connections: senderId } },
+        ),
+        User.updateOne(
+          { _id: senderId },
+          { $addToSet: { connections: receiverId } },
+        ),
+      ]);
+
+      return {
+        message: "Connection established automatically",
+        requestStatus: "success",
+        friendRequestStatus: "accepted",
+      };
+    }
+
+    // 3. No existing request at all -> create fresh
     if (destinationUser.accountType === "private") {
-      const existingRequest = await FriendRequest.findOne({
-        senderId,
-        receiverId,
-      });
-
-      if (existingRequest) throw new Error("Request already pending");
-
-      const newRequest = await FriendRequest.create({
+      await FriendRequest.create({
         senderId,
         receiverId,
       });
@@ -248,7 +298,6 @@ export const sendFriendRequest = async (req: any) => {
     };
   } catch (error: any) {
     console.error(`Friend Request Error: ${error.message}`);
-    // Don't just throw a generic error; tell the user why it actually failed
     throw new Error(error.message || "Failed to process connection");
   }
 };
@@ -459,7 +508,17 @@ export const getUserConnections = async (
     throw new Error(`Failed to fetch connections: ${error.message}`);
   }
 };
+export const isUserConnected = async (
+  userId: string,
+  targetUserId: string,
+): Promise<boolean> => {
+  const exists = await User.exists({
+    _id: userId,
+    connections: new mongoose.Types.ObjectId(targetUserId),
+  });
 
+  return !!exists;
+};
 export const searchUsers = async (query: string, excludeUserId: string) => {
   try {
     const term = query.trim();

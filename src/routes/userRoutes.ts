@@ -6,7 +6,6 @@ import {
   getPendingRequests,
   blockUser,
   unblockUser,
-  forceReset,
   getUserById,
   searchUsers,
   getUserConnections,
@@ -16,10 +15,12 @@ import {
   resetPassword,
   resetFullName,
   toggleAccountType,
+  isUserConnected,
 } from "../services/userService.js";
 import { handleFriendRequest } from "../services/userService.js";
 import { Request, Response } from "express";
 import { protect } from "../middleware/authMiddleware.js";
+import mongoose from "mongoose";
 
 const router = express.Router();
 const isProduction = process.env.NODE_ENV === "production";
@@ -124,6 +125,30 @@ router.put("/fullname", protect, async (req: any, res: any) => {
   }
 });
 
+router.get("/connection/:targetUserId", protect, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    const { targetUserId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ message: "Invalid target user id" });
+    }
+
+    if (userId === targetUserId) {
+      return res
+        .status(400)
+        .json({ message: "Cannot check connection with self" });
+    }
+
+    const connected = await isUserConnected(userId, targetUserId);
+
+    return res.status(200).json({ connected });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
 router.put("/account-type/toggle", protect, async (req: any, res: any) => {
   try {
     const userId = req.user.id;
@@ -143,28 +168,6 @@ router.put("/account-type/toggle", protect, async (req: any, res: any) => {
     res.status(400).json({
       success: false,
       message: error.message || "Failed to flip the switch.",
-    });
-  }
-});
-
-router.post("/temp/reset/force", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    // Validate that we actually got data
-    if (!username || !password) {
-      return res.status(400).send({ error: "Missing username or password" });
-    }
-
-    await forceReset({ username, password });
-
-    res.send({
-      message: "Password updated successfully. Try not to lose it this time.",
-    });
-  } catch (error: any) {
-    console.error("Reset Error:", error.message); // Log the actual error for debugging
-    res.status(500).send({
-      error: error.message || "Couldn't reset",
     });
   }
 });
